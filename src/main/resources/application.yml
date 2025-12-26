@@ -1,0 +1,57 @@
+server:
+  port: 8080
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${OAUTH_GOOGLE_CLIENT_ID}
+            client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
+            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:8080/oauth/callback/google}
+            authorization-grant-type: authorization_code
+            scope:
+              - email
+              - profile
+
+          facebook:
+            client-id: ${OAUTH_FACEBOOK_CLIENT_ID}
+            client-secret: ${OAUTH_FACEBOOK_CLIENT_SECRET}
+            redirect-uri: ${OAUTH_FACEBOOK_REDIRECT_URI:http://localhost:8080/oauth/callback/facebook}
+            authorization-grant-type: authorization_code
+            scope:
+              - email
+              - public_profile
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    chat:
+      options:
+        model: gpt-4o-mini
+        temperature: 0.2
+
+jwt:
+  secret: ${JWT_SECRET}
+  access:
+    expiration: ${JWT_ACCESS_EXPIRATION:3600000}
+    header: ${JWT_ACCESS_HEADER:Authorization}
+  refresh:
+    expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
+    header: ${JWT_REFRESH_HEADER:Authorization-refresh}
