@@ -1,5 +1,3 @@
----
-
 ## [KR] 개인정보 처리 및 데이터 삭제 안내
 **travle** 서비스를 이용해 주셔서 감사합니다. 당사는 사용자의 개인정보를 소중히 다루며, 관련 규정을 준수합니다.
 
@@ -17,5 +15,3 @@ Thank you for using **travle**. We value your privacy and comply with data prote
 3. **Data Deletion Request:** If you wish to delete your data from our service, please contact us via email.
    - **Contact Email:** kungseman0509@gmail.com
    - **Process:** Upon receiving the request, we will verify your identity and delete all associated data within 7 business days.
-
----
