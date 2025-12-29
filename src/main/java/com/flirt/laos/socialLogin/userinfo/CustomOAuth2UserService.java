@@ -63,7 +63,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     }
 
     private Provider toProvider(String registrationId) {
-        return "facebook".equalsIgnoreCase(registrationId) ? Provider.FACEBOOK : Provider.GOOGLE;
+        return Provider.GOOGLE;
     }
 
     private User getOrSaveUser(OAuthDTO oAuthDTO, Provider provider) {

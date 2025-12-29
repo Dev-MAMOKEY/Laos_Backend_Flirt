@@ -20,8 +20,6 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
 
-    private final EmailVerificationService emailVerificationService;
-
     @Transactional
     public User registerUser(RegisterDTO registerDTO) { // 회원가입 처리 메서드 CRUD의 Create
 
@@ -38,16 +36,6 @@ public class UserService {
         // 중복 이메일 확인 처리 로직
         if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) { // 이메일이 이미 존재하는지 확인
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
-        }
-
-        // 이메일 인증 코드 일치 여부 로직
-        if (registerDTO.getEmailCode() == null || registerDTO.getEmailCode().isBlank()) {
-            throw new IllegalArgumentException("이메일 인증 코드를 입력해주세요.");
-        }
-
-        boolean isVerified = emailVerificationService.verifyCode(registerDTO.getEmail(), registerDTO.getEmailCode());
-        if (!isVerified) {
-            throw new IllegalArgumentException("이메일 인증에 실패했습니다. 인증 코드를 확인해주세요.");
         }
 
         // 회원 정보 저장 로직

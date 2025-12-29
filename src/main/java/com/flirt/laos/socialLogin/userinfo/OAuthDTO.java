@@ -32,8 +32,6 @@ public class OAuthDTO {
 
         if (provider == Provider.GOOGLE) {
             return ofGoogle(nameAttributeKey, attributes);
-        } else if (provider == Provider.FACEBOOK) {
-            return ofFacebook(nameAttributeKey, attributes);
         } else {
             throw new IllegalArgumentException("지원하지 않는 소셜 로그인입니다.");
         }
@@ -43,13 +41,6 @@ public class OAuthDTO {
         return OAuthDTO.builder()
                 .nameAttributeKey(nameAttributeKey)
                 .oAuth2UserInfo(new GoogleOAuth2UserInfo(attributes))
-                .build();
-    }
-
-    private static OAuthDTO ofFacebook(String nameAttributeKey, Map<String, Object> attributes) {
-        return OAuthDTO.builder()
-                .nameAttributeKey(nameAttributeKey)
-                .oAuth2UserInfo(new FacebookOAuth2UserInfo(attributes))
                 .build();
     }
 
