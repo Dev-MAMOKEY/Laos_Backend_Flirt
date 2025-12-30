@@ -14,16 +14,6 @@ spring:
             scope:
               - email
               - profile
-
-          facebook:
-            client-id: ${OAUTH_FACEBOOK_CLIENT_ID}
-            client-secret: ${OAUTH_FACEBOOK_CLIENT_SECRET}
-            redirect-uri: ${OAUTH_FACEBOOK_REDIRECT_URI:http://localhost:8080/oauth/callback/facebook}
-            authorization-grant-type: authorization_code
-            scope:
-              - email
-              - public_profile
-
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL}
@@ -38,14 +28,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-
-ai:
-  openai:
-    api-key: ${OPENAI_API_KEY}
-    chat:
-      options:
-        model: gpt-4o-mini
-        temperature: 0.2
 
 jwt:
   secret: ${JWT_SECRET}

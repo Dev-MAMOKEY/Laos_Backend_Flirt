@@ -137,14 +137,16 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
         }
     }
 
-    // userId 추출
-    public Optional<String> extractUserNum(String accessToken) {
+    // userId 추출 (로컬 로그인용)
+    public Optional<Integer> extractUserNum(String accessToken) {
         try {
-            return Optional.ofNullable(JWT.require(Algorithm.HMAC512(secret))
+            Integer userNum = JWT.require(Algorithm.HMAC512(secret))
                     .build()
                     .verify(accessToken)
                     .getClaim(USER_NUM_CLAIM)
-                    .asString());
+                    .asInt(); // createAccessTokenByUserNum 에서 Integer 로 넣었으므로 asInt 로 꺼낸다.
+
+            return Optional.ofNullable(userNum);
         } catch (Exception e) {
             log.error("유효하지 않은 액세스 토큰입니다.");
             return Optional.empty();

@@ -16,6 +16,4 @@ public class RegisterDTO {
     private String nickname;
 
     private String email;
-
-    private String emailCode; // 이메일 인증 코드
 }

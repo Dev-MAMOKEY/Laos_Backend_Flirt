@@ -32,8 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * <p>
      * 기본적으로 사용자는 요청 헤더에 AccessToken만 담아서 요청
      * AccessToken 만료 시에만 RefreshToken을 요청 헤더에 AccessToken과 함께 요청
-     * <p>
-     * 1. RefreshToken이 없고, AccessToken이 유효한 경우 -> 인증 성공 처리, RefreshToken을 재발급하지는 않는다.
+     * <p>m
      * 2. RefreshToken이 없고, AccessToken이 없거나 유효하지 않은 경우 -> 인증 실패 처리, 403 ERROR
      * 3. RefreshToken이 있는 경우 -> DB의 RefreshToken과 비교하여 일치하면 AccessToken 재발급, RefreshToken 재발급(RTR 방식)
      * 인증 성공 처리는 하지 않고 실패 처리
@@ -110,7 +109,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     // 1) userNum 클레임 우선 시도 (로컬 로그인 토큰)
                     boolean authenticated = jwtService.extractUserNum(accessToken)
-                            .map(Integer::valueOf)
                             .flatMap(userRepository::findByUserNum)
                             .map(user -> { saveAuthentication(user); return true; })
                             .orElse(false);

@@ -11,5 +11,5 @@ public class SocialLoginDTO {
 
     private String name;
 
-    private String provider; // ex) google, facebook
+    private String provider; // ex) google
 }

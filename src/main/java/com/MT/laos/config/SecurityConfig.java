@@ -30,7 +30,8 @@ public class SecurityConfig {
                         // 회원가입, 로그인, 소셜 로그인 콜백 등은 모두 인증 없이 허용
                         .requestMatchers("/", "/index", "/login", "/register",
                                 "/auth/**", "/oauth2/**", "/login/oauth2/**", "/oauth/callback/**",
-                                "/message", "/verify"
+                                // MBTI 테스트 API는 토큰 검증을 컨트롤러 내부에서 직접 처리하므로 일단 permitAll
+                                "/mbti/**"
                         ).permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()

@@ -33,7 +33,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
         OAuth2User oAuth2User = delegate.loadUser(userRequest);
 
-        // 2. Google, Facebook 등 소셜 타입 판별
+        // 2. 소셜 타입 판별 (현재는 Google만 지원)
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         Provider provider = toProvider(registrationId);
 
@@ -64,7 +64,12 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     }
 
     private Provider toProvider(String registrationId) {
-        return "facebook".equalsIgnoreCase(registrationId) ? Provider.FACEBOOK : Provider.GOOGLE;
+        // Facebook 등 다른 소셜 로그인을 더 이상 지원하지 않으므로
+        // registrationId가 google이 아니면 예외를 발생시킨다.
+        if (!"google".equalsIgnoreCase(registrationId)) {
+            throw new IllegalArgumentException("지원하지 않는 소셜 로그인입니다: " + registrationId);
+        }
+        return Provider.GOOGLE;
     }
 
     private User getOrSaveUser(OAuthDTO oAuthDTO, Provider provider) {

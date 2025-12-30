@@ -38,8 +38,6 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
-        // 이메일 인증 코드 일치 여부 로직
-
         // 회원 정보 저장 로직
 
         User user = User.builder()

@@ -20,6 +20,11 @@ public class LoginController {
     private final LocalLoginService loginService;
     private final UserService userService;
 
+    @GetMapping("/login") // 로컬 로그인 페이지
+    public String loginpage() {
+        return "login page";
+    }
+
     @PostMapping("/login") // 로컬 로그인 처리 (JSON)
     public ResponseEntity<?> login(@RequestBody LocalLoginDTO localLoginDTO) {
         Optional<AuthTokensDTO> tokens = loginService.localLogin(localLoginDTO);

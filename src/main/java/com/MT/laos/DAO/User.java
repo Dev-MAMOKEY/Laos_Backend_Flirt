@@ -33,7 +33,7 @@ public class User {
     @Column(name = "social_id") // 소셜 로그인시 제공되는 아이디
     private String socialId;
 
-    @Column(name = "provider") // 소셜 로그인 제공자 (예: GOOGLE, FACEBOOK)
+    @Column(name = "provider") // 소셜 로그인 제공자 (예: GOOGLE, LOCAL)
     private String provider;
 
     @Column(name = "refresh_token") // 리프레시 토큰
@@ -41,6 +41,11 @@ public class User {
 
     @Column(name = "created_at") // 계정 생성 일시
     private Date createdAt;
+
+
+    @ManyToOne
+    @JoinColumn(name = "mbti_num") // MBTI 외래키
+    private MBTI mbti;
 
     // 엔티티가 처음 저장될 때 생성 시간 자동 설정
     @PrePersist
