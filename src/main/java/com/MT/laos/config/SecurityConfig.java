@@ -31,7 +31,9 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index", "/login", "/register",
                                 "/auth/**", "/oauth2/**", "/login/oauth2/**", "/oauth/callback/**",
                                 // MBTI 테스트 API는 토큰 검증을 컨트롤러 내부에서 직접 처리하므로 일단 permitAll
-                                "/mbti/**"
+                                "/mbti/**",
+                                // OpenAI API는 토큰 검증을 컨트롤러 내부에서 직접 처리하므로 permitAll
+                                "/question"
                         ).permitAll()
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()

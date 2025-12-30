@@ -110,9 +110,34 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
     // 헤더에서 AT 추출 (Request)
     // Optional 사용하는 이유 : 토큰 요청이 헤더에 없거나, 형식이 올바르지 않을 경우 예외가 발생하게됨 NPE 방지 위해 안전하게 Optional 사용
     public Optional<String> extractAccessToken(HttpServletRequest request) {
-        return Optional.ofNullable(request.getHeader(accessHeader))
-                .filter(header -> header.startsWith(BEARER))
-                .map(header -> header.substring(BEARER.length()).trim());
+        String headerValue = request.getHeader(accessHeader);
+        if (headerValue == null || headerValue.isEmpty()) {
+            return Optional.empty();
+        }
+        
+        // Bearer 접두사 제거 및 정리
+        String token = headerValue.trim();
+        if (token.startsWith(BEARER)) {
+            token = token.substring(BEARER.length()).trim();
+        } else if (token.toLowerCase().startsWith("bearer ")) {
+            // 대소문자 구분 없이 처리
+            token = token.substring(7).trim();
+        }
+        
+        // 콤마가 있으면 첫 번째 토큰만 사용 (AccessToken과 RefreshToken이 함께 있는 경우 대비)
+        // 예: "token1, refreshToken = token2" -> "token1"
+        if (token.contains(",")) {
+            token = token.split(",")[0].trim();
+        }
+        
+        // JWT 토큰은 정확히 3개의 부분(점으로 구분)으로 구성되어야 함
+        String[] parts = token.split("\\.");
+        if (parts.length != 3) {
+            log.warn("잘못된 JWT 토큰 형식: {}개의 부분으로 구성됨 (예상: 3개), 토큰: {}", parts.length, token.length() > 50 ? token.substring(0, 50) + "..." : token);
+            return Optional.empty();
+        }
+        
+        return Optional.of(token);
     }
 
     // 헤더에서 RT 추출 (Request)
@@ -126,13 +151,18 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
     public Optional<String> extractEmail(String accessToken) {
         try {
             // try-catch문 활용해서 추출값이 있으면 builder 통해 반환, 없으면 Optional.Empty() 반환
-            return Optional.ofNullable(JWT.require(Algorithm.HMAC512(secret)) // JWT 시크릿키로 토큰 유효성 검사
+            var claim = JWT.require(Algorithm.HMAC512(secret)) // JWT 시크릿키로 토큰 유효성 검사
                     .build() // 빌더 반환해서 verifier 생성
                     .verify(accessToken) // 액세스 토큰이 유효한지 검증하고 일치하지 않으면 catch 구문으로 넘어가 오류 발생
-                    .getClaim(EMAIL_CLAIM)
-                    .asString());
+                    .getClaim(EMAIL_CLAIM);
+            
+            if (claim.isNull()) {
+                return Optional.empty();
+            }
+            
+            return Optional.ofNullable(claim.asString());
         } catch (Exception e) {
-            log.error("유효하지 않은 액세스 토큰입니다.");
+            log.error("유효하지 않은 액세스 토큰입니다. email 추출 실패: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -140,15 +170,19 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
     // userId 추출 (로컬 로그인용)
     public Optional<Integer> extractUserNum(String accessToken) {
         try {
-            Integer userNum = JWT.require(Algorithm.HMAC512(secret))
+            var claim = JWT.require(Algorithm.HMAC512(secret))
                     .build()
                     .verify(accessToken)
-                    .getClaim(USER_NUM_CLAIM)
-                    .asInt(); // createAccessTokenByUserNum 에서 Integer 로 넣었으므로 asInt 로 꺼낸다.
-
+                    .getClaim(USER_NUM_CLAIM);
+            
+            if (claim.isNull()) {
+                return Optional.empty();
+            }
+            
+            Integer userNum = claim.asInt(); // createAccessTokenByUserNum 에서 Integer 로 넣었으므로 asInt 로 꺼낸다.
             return Optional.ofNullable(userNum);
         } catch (Exception e) {
-            log.error("유효하지 않은 액세스 토큰입니다.");
+            log.error("유효하지 않은 액세스 토큰입니다. userNum 추출 실패: {}", e.getMessage());
             return Optional.empty();
         }
     }
@@ -156,16 +190,24 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
     // 액세스 토큰 검증하고 소셜 타입 추출
     public Optional<Provider> extractProvider(String accessToken) {
         try { // ENUM 같이 자바 객체 타입은 JWT 구조인 JSON에 바로 저장할 수 없으므로 스트링으로 지정한 후 토큰에서 문자열 추출
-            String SocialTypeStr = JWT.require(Algorithm.HMAC512(secret))
+            var claim = JWT.require(Algorithm.HMAC512(secret))
                     .build()
                     .verify(accessToken)
-                    .getClaim(PROVIDER_CLAIM)
-                    .asString();
+                    .getClaim(PROVIDER_CLAIM);
+            
+            if (claim.isNull()) {
+                return Optional.empty();
+            }
+            
+            String SocialTypeStr = claim.asString();
+            if (SocialTypeStr == null || SocialTypeStr.isEmpty()) {
+                return Optional.empty();
+            }
 
             // 문자열을 ENUM으로 변환후 Optional로 감싸서 반환
             return Optional.of(Provider.valueOf(SocialTypeStr));
         } catch (Exception e) {
-            log.error("유효하지 않은 액세스 토큰입니다.");
+            log.error("유효하지 않은 액세스 토큰입니다. provider 추출 실패: {}", e.getMessage());
             return Optional.empty();
         }
     }
