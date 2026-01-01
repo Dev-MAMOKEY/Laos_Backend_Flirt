@@ -104,7 +104,7 @@ public class OpenAiController {
             String mbtiType = null;
             if (user.getMbti() != null) {
                 mbtiType = user.getMbti().getMbtiType();
-                log.info("[OpenAI] 사용자 MBTI: {}", mbtiType);
+                log.info("[OpenAI] 사용자 MBTI 타입: {}", mbtiType);
             } else {
                 log.info("[OpenAI] 사용자 MBTI 정보 없음");
             }

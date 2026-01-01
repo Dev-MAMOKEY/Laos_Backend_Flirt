@@ -10,21 +10,27 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class OpenAiService {
 
-    @Value("${openai.api-key}")
+    @Value("${OPENAI_API_KEY}")
     private String apiKey;
 
     private String defalut_prompt = """
             역할 : 너는 각 mbti별 한국 여행지 추천 및 하루 계획표 짜주는 ai야
             형식 : 답변형식은 json형식으로 하고, 특수문자 및 기호는 사용하지 않고 존댓말로 답변해. 한국에서 유명한 관광지를 추천해줘. 여행지는 3개만 알려줘
             예시 : 그리고 답변의 예시는 이런식으로 되었으면 좋겠어.
-            1. 경주 - 경주월드
-            추천이유:
-            2. 부산 - 광안대교
-            추천이유: 야경을 보며 사진을 찍고싶은 사람들을 위한 장소입니다.
-            연인과 함께가기 추천
-            3. 경주 - 불국사
-            추천이유: 
-            대한민국 역사에 관심있는 사람들을 위한 ~~~
+            [
+              {
+                "travel_destination": "서울 - 홍대",
+                "recommend_reason": "(사용자mbti값 반환) 유형의 사람들에게는 역동적이고 다채로운 문화와 예술이 공존하는 홍대가 추천됩니다. 거리 곳곳에 아트 갤러리, 상점, 카페 등이 위치해 창의적인 자극을 받을 수 있습니다."
+              },
+              {
+                "travel_destination": "전주 한옥마을",
+                "recommend_reason": "(사용자mbti값 반환) 유형의 사람들에게는 조용하고 아름다운 전통 한옥마을이 추천됩니다. 한복을 대여하여 한국 전통 문화를 경험하고 예쁜 사진을 찍을 수 있습니다."
+              },
+              {
+                "travel_destination": "제주도 - 성산일출봉",
+                "recommend_reason": "(사용자mbti값 반환) 유형의 사람들에게는 독특한 지형과 아름다운 일출을 감상할 수 있는 성산일출봉이 추천됩니다. 모험을 즐기고 자연 속에서 아이디어를 발전시킬 수 있는 좋은 장소입니다."
+              }
+            ]
             """;
 
     private final RestTemplate restTemplate;
