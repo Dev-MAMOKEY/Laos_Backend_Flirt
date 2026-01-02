@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Getter
 @Slf4j
@@ -41,6 +42,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         String requestURI = request.getRequestURI();
+        String requestMethod = request.getMethod();
+        log.info("===========================================");
+        log.info("[JWT Filter] 필터 진입 - Method: {}, URI: {}", requestMethod, requestURI);
+        log.info("[JWT Filter] Remote Address: {}", request.getRemoteAddr());
+        log.info("===========================================");
 
         // 로그인/회원가입/소셜 인증 관련 요청은 JWT 검사 없이 통과
         if (requestURI.startsWith("/login")
@@ -48,6 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || requestURI.startsWith("/oauth2")
                 || requestURI.startsWith("/login/oauth2")
                 || requestURI.startsWith("/oauth/callback")) {
+            log.debug("[JWT Filter] 인증 불필요 경로 통과: {}", requestURI);
             chain.doFilter(request, response); // 요청 응답을 chain.doFilter() 통해서 넘겨야 다음 작업이 진행됨 / 호출하지 않으면 다음 필터로 이동 x
             return; // 리턴 통해 다음 코드를 실행시키지 않고 종료
         }
@@ -101,29 +108,69 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     public void checkAccessToken(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
-        // 불필요한 과도한 로그 방지: 토큰 존재/유효할 때만 핵심 로그 출력
-        jwtService.extractAccessToken(request)
-                .filter(jwtService::isTokenValid)
-                .ifPresent(accessToken -> {
-                    log.debug("[JWT] 유효한 AT 감지, 사용자 인증 진행 중");
+        String requestURI = request.getRequestURI();
+        String requestMethod = request.getMethod();
+        log.info("[JWT Filter] AccessToken 검증 시작: {} {}", requestMethod, requestURI);
+        
+        Optional<String> accessTokenOptional = jwtService.extractAccessToken(request);
+        
+        if (accessTokenOptional.isEmpty()) {
+            log.warn("[JWT Filter] AccessToken이 없습니다. {} {}", requestMethod, requestURI);
+            // 토큰이 없어도 chain.doFilter를 호출하여 Spring Security의 exceptionHandling이 처리하도록 함
+            log.info("[JWT Filter] chain.doFilter 호출 전: {} {}", requestMethod, requestURI);
+            chain.doFilter(request, response);
+            log.info("[JWT Filter] chain.doFilter 호출 후: {} {}", requestMethod, requestURI);
+            return;
+        }
+        
+        String accessToken = accessTokenOptional.get();
+        
+        if (!jwtService.isTokenValid(accessToken)) {
+            log.warn("[JWT Filter] 유효하지 않은 AccessToken. {} {}", requestMethod, requestURI);
+            // 토큰이 유효하지 않아도 chain.doFilter를 호출하여 Spring Security의 exceptionHandling이 처리하도록 함
+            log.info("[JWT Filter] chain.doFilter 호출 전: {} {}", requestMethod, requestURI);
+            chain.doFilter(request, response);
+            log.info("[JWT Filter] chain.doFilter 호출 후: {} {}", requestMethod, requestURI);
+            return;
+        }
+        
+        log.info("[JWT Filter] 유효한 AT 감지, 사용자 인증 진행 중. {} {}", requestMethod, requestURI);
 
-                    // 1) userNum 클레임 우선 시도 (로컬 로그인 토큰)
-                    boolean authenticated = jwtService.extractUserNum(accessToken)
-                            .flatMap(userRepository::findByUserNum)
-                            .map(user -> { saveAuthentication(user); return true; })
-                            .orElse(false);
+        // 1) userNum 클레임 우선 시도 (로컬 로그인 토큰)
+        boolean authenticated = jwtService.extractUserNum(accessToken)
+                .flatMap(userRepository::findByUserNum)
+                .map(user -> { 
+                    log.info("[JWT Filter] userNum으로 사용자 인증 성공: {}", user.getUserNum());
+                    saveAuthentication(user); 
+                    return true; 
+                })
+                .orElse(false);
 
-                    // 2) email 클레임으로 시도 (소셜 로그인 토큰)
-                    if (!authenticated) {
-                        jwtService.extractEmail(accessToken)
-                                .flatMap(email -> jwtService.extractProvider(accessToken)
-                                        .map(Enum::name)
-                                        .flatMap(provider -> userRepository.findByEmailAndProvider(email, provider)))
-                                .ifPresent(this::saveAuthentication);
-                    }
-                });
+        // 2) email 클레임으로 시도 (소셜 로그인 토큰)
+        if (!authenticated) {
+            authenticated = jwtService.extractEmail(accessToken)
+                    .flatMap(email -> jwtService.extractProvider(accessToken)
+                            .map(Enum::name)
+                            .flatMap(provider -> userRepository.findByEmailAndProvider(email, provider)))
+                    .map(user -> {
+                        log.info("[JWT Filter] email + provider로 사용자 인증 성공: {}", user.getUserNum());
+                        saveAuthentication(user);
+                        return true;
+                    })
+                    .orElse(false);
+        }
+        
+        if (!authenticated && SecurityContextHolder.getContext().getAuthentication() == null) {
+            log.warn("[JWT Filter] 토큰은 유효하지만 사용자를 찾을 수 없습니다. {} {}", request.getMethod(), requestURI);
+        }
 
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        log.info("[JWT Filter] 인증 완료, SecurityContext 인증 상태: {} (URI: {})", 
+                auth != null ? "인증됨" : "인증 안됨", requestURI);
+        
+        log.info("[JWT Filter] chain.doFilter 호출 전: {} {}", request.getMethod(), requestURI);
         chain.doFilter(request, response); // 다음 필터로 요청 전달
+        log.info("[JWT Filter] chain.doFilter 호출 후: {} {}", request.getMethod(), requestURI);
     }
 
     public void saveAuthentication(User myUser) { // 소셜/로컬 공통: 인증된 사용자 정보를 SecurityContext에 저장

@@ -241,4 +241,22 @@ public class JwtService { // JWT 생성 (AT, RT) , 정보 조회 판단 로직
             return false;
         }
     }
+
+    // 로그아웃: RefreshToken 삭제 (로컬 로그인용)
+    public void deleteRefreshTokenByUserNum(Integer userNum) {
+        userRepository.findByUserNum(userNum).ifPresent(user -> {
+            user.updateRefreshToken(null); // RefreshToken을 null로 설정하여 무효화
+            userRepository.save(user);
+            log.info("사용자 번호 {}의 RefreshToken이 삭제되었습니다.", userNum);
+        });
+    }
+
+    // 로그아웃: RefreshToken 삭제 (소셜 로그인용)
+    public void deleteRefreshToken(String email, Provider provider) {
+        userRepository.findByEmailAndProvider(email, provider.name()).ifPresent(user -> {
+            user.updateRefreshToken(null); // RefreshToken을 null로 설정하여 무효화
+            userRepository.save(user);
+            log.info("이메일 {} (provider: {})의 RefreshToken이 삭제되었습니다.", email, provider);
+        });
+    }
 }

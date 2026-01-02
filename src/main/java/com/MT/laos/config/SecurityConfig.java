@@ -8,16 +8,23 @@ import com.MT.laos.socialLogin.userinfo.CustomOAuth2UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import lombok.extern.slf4j.Slf4j;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.List;
 
 @Configuration
+@Slf4j
 public class SecurityConfig {
 
     @Bean
@@ -26,23 +33,50 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             CustomOAuth2UserService customOAuth2UserService,
             OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
-            OAuth2LoginFailureHandler oAuth2LoginFailureHandler
+            OAuth2LoginFailureHandler oAuth2LoginFailureHandler,
+            CorsConfigurationSource corsConfigurationSource
     ) throws Exception {
         http
                 // CSRF는 REST API 테스트/개발 단계에서는 보통 끄고 시작
                 .csrf(csrf -> csrf.disable())
+                // CORS 설정 적용
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                // 세션을 사용하지 않도록 설정 (JWT 기반 인증)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // OPTIONS 요청(CORS preflight)은 모두 허용
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**")
+                        .permitAll()
                         // 회원가입, 로그인, 소셜 로그인 콜백 등은 모두 인증 없이 허용
                         .requestMatchers("/", "/index", "/login", "/register",
                                 "/auth/**", "/oauth2/**", "/login/oauth2/**", "/oauth/callback/**",
                                 // MBTI 테스트 API는 토큰 검증을 컨트롤러 내부에서 직접 처리하므로 일단 permitAll
                                 "/mbti/**",
                                 // OpenAI API는 토큰 검증을 컨트롤러 내부에서 직접 처리하므로 permitAll
-                                "/question"
-                        ).permitAll()
+                                "/question")
+                        .permitAll()
+                        // 로그아웃, 회원탈퇴는 JWT 인증 필요
+                        .requestMatchers("/logout", "/delete/user")
+                        .authenticated()
                         // 나머지는 인증 필요
-                        .anyRequest().authenticated()
+                        .anyRequest()
+                        .authenticated()
                 )
+                // 인증 실패 시 JSON 응답 반환 (HTML 로그인 페이지 대신)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.getWriter().write("{\"error\":\"인증이 필요합니다. AccessToken을 헤더에 포함해주세요.\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.getWriter().write("{\"error\":\"접근 권한이 없습니다.\"}");
+                        })
+                )
+                // Spring Security의 기본 로그아웃 비활성화 (커스텀 로그아웃 컨트롤러 사용)
+                .logout(logout -> logout.disable())
                 // OAuth2 소셜 로그인 설정
                 .oauth2Login(oauth -> oauth
                         // 별도 로그인 페이지 없이, /oauth2/authorization/{provider}로 직접 진입

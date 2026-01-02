@@ -5,8 +5,10 @@ import com.MT.laos.DAO.Provider;
 import com.MT.laos.DTO.RegisterDTO;
 import com.MT.laos.DTO.UserUpdateDTO;
 import com.MT.laos.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
-
     private final PasswordEncoder passwordEncoder;
+    private final EntityManager entityManager;
 
     @Transactional
     public User registerUser(RegisterDTO registerDTO) { // 회원가입 처리 메서드 CRUD의 Create
@@ -97,8 +99,43 @@ public class UserService {
     // 사용자 회원정보 탈퇴 로직 CRUD의 Delete
     @Transactional
     public void deleteUser(Integer userNum) { // 사용자 고유 번호로 조회 후 삭제
+        log.info("[UserService] 회원탈퇴 시작: userNum = {}", userNum);
+        
         User user = userRepository.findByUserNum(userNum)
-                .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다."));
-        userRepository.delete(user);
+                .orElseThrow(() -> {
+                    log.error("[UserService] 사용자를 찾을 수 없습니다: userNum = {}", userNum);
+                    return new IllegalArgumentException("해당 사용자가 존재하지 않습니다.");
+                });
+        
+        log.info("[UserService] 삭제할 사용자 정보: userNum = {}, email = {}, localId = {}", 
+                user.getUserNum(), user.getEmail(), user.getLocalId());
+        
+        try {
+            // MBTI 관계를 null로 설정 (외래키 제약조건 해결)
+            if (user.getMbti() != null) {
+                log.info("[UserService] MBTI 관계 해제: mbtiNum = {}", user.getMbti().getMbtiNum());
+                user.setMbti(null);
+            }
+            
+            // 사용자 삭제
+            userRepository.delete(user);
+            // 즉시 DB에 반영
+            entityManager.flush();
+            
+            // 삭제 확인
+            boolean exists = userRepository.findByUserNum(userNum).isPresent();
+            if (exists) {
+                log.error("[UserService] 삭제 후에도 사용자가 여전히 존재합니다: userNum = {}", userNum);
+                throw new IllegalStateException("사용자 삭제에 실패했습니다.");
+            }
+            
+            log.info("[UserService] 회원탈퇴 완료: userNum = {}", userNum);
+        } catch (DataIntegrityViolationException e) {
+            log.error("[UserService] 데이터 무결성 제약조건 위반: {}", e.getMessage());
+            throw new IllegalStateException("외래키 제약조건으로 인해 삭제할 수 없습니다.", e);
+        } catch (Exception e) {
+            log.error("[UserService] 회원탈퇴 중 예외 발생: {}", e.getMessage(), e);
+            throw new IllegalStateException("회원탈퇴 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
     }
 }
