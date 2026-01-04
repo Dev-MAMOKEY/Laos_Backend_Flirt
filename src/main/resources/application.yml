@@ -39,7 +39,3 @@ jwt:
   refresh:
     expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
     header: ${JWT_REFRESH_HEADER:Authorization-refresh}
-
-ai:
-  openai:
-    api-key: ${OPENAI_API_KEY}
