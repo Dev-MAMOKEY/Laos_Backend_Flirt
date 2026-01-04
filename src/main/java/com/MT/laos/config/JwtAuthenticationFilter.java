@@ -80,24 +80,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    // 리프레시 토큰 체크 메서드 (토큰이 만료됐을 때 재발급 및 저장되는 로직)
+    /**
+     * 리프레시 토큰 체크 메서드
+     * - 만료된 AccessToken + 유효한 RefreshToken 이 함께 올 때 사용
+     * - DB에 저장된 RefreshToken 과 요청값이 일치하면 AT/RT 둘 다 재발급
+     * - 일치하지 않으면 403 으로 인증 실패 처리
+     */
     public void checkRefreshToken(HttpServletResponse response, String refreshToken) throws IOException {
-        userRepository.findByRefreshToken(refreshToken)
-                .ifPresent(user -> { // userRepository에서 리프레시토큰을 찾아서 존재하면 필터 로직이 실행되는 구조
-                    String newRefreshToken = newRefreshToken(user); // 일치하면 리프레시 토큰 값도 새로 발급 받음
+        log.info("[JWT Filter] RefreshToken 검증 시작");
+        
+        Optional<User> optionalUser = userRepository.findByRefreshToken(refreshToken);
+        
+        if (optionalUser.isEmpty()) {
+            log.warn("[JWT Filter] DB에 일치하는 RefreshToken 이 없습니다. 로그아웃되었거나 탈퇴한 사용자일 수 있습니다.");
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"유효하지 않은 RefreshToken 입니다. 다시 로그인 해주세요.\"}");
+            return;
+        }
 
-                    // 액세스 토큰 새로 발급: 로컬(LOCAL)은 userNum 기반, 소셜은 email + provider 기반
-                    String provider = user.getProvider();
-                    String newAccessToken;
-                    if (provider == null || "LOCAL".equalsIgnoreCase(provider)) {
-                        newAccessToken = jwtService.createAccessTokenByUserNum(user.getUserNum());
-                    } else {
-                        newAccessToken = jwtService.createAccessToken(user.getEmail(), provider);
-                    }
+        User user = optionalUser.get();
+        log.info("[JWT Filter] RefreshToken 일치 사용자 확인: userNum = {}, provider = {}",
+                user.getUserNum(), user.getProvider());
 
-                    // AT, RT를 헤더에 담아서 응답 (메서드 시그니처: (response, accessToken, refreshToken))
-                    jwtService.sendRefreshToken(response, newAccessToken, newRefreshToken);
-                });
+        // 일치하면 리프레시 토큰 값도 새로 발급 받음
+        String newRefreshToken = newRefreshToken(user);
+
+        // 액세스 토큰 새로 발급: 로컬(LOCAL)은 userNum 기반, 소셜은 email + provider 기반
+        String provider = user.getProvider();
+        String newAccessToken;
+        if (provider == null || "LOCAL".equalsIgnoreCase(provider)) {
+            newAccessToken = jwtService.createAccessTokenByUserNum(user.getUserNum());
+            log.info("[JWT Filter] LOCAL 사용자에 대한 AccessToken 재발급 완료: userNum = {}", user.getUserNum());
+        } else {
+            newAccessToken = jwtService.createAccessToken(user.getEmail(), provider);
+            log.info("[JWT Filter] 소셜 사용자에 대한 AccessToken 재발급 완료: email = {}, provider = {}", user.getEmail(), provider);
+        }
+
+        // AT, RT를 헤더에 담아서 응답 (메서드 시그니처: (response, accessToken, refreshToken))
+        jwtService.sendRefreshToken(response, newAccessToken, newRefreshToken);
+        log.info("[JWT Filter] AccessToken / RefreshToken 재발급 완료, 응답 전송");
     }
 
     public String newRefreshToken(User user) { // 리프레시 토큰 새로 발급하는 로직
