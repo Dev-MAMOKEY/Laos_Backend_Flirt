@@ -18,8 +18,8 @@ spring:
               - profile
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
+    url: ${DB_URL_LOCAL}
+    username: ${DB_USERNAME_LOCAL}
     password: ${DB_PASSWORD}
 
   jpa:
@@ -39,3 +39,6 @@ jwt:
   refresh:
     expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
     header: ${JWT_REFRESH_HEADER:Authorization-refresh}
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}

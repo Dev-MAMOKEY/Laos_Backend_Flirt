@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-
 import java.io.IOException;
 
 @Slf4j
@@ -27,7 +26,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
 
-        log.info("oauth2 로그인 성공!");
+        log.info("[OAuth2] 브라우저 리다이렉트 기반 소셜 로그인 성공");
 
         try {
             CustomOAuth2User customOAuth2User = (CustomOAuth2User) authentication.getPrincipal();
@@ -57,15 +56,11 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     // 로그인 성공시 jwt 토큰 생성하고 응답에 추가하는 메서드
     private void loginSuccess(HttpServletResponse response, CustomOAuth2User customOAuth2User) throws IOException {
-
         // 토큰 생성 로직
         String accessToken = jwtService.createAccessToken(customOAuth2User.getEmail(), customOAuth2User.getProvider());
         String refreshToken = jwtService.createRefreshToken();
 
-        // 응답 헤더에 토큰 추가 (표준 접두사 "Bearer " + 공백 포함)
-        response.addHeader(jwtService.getAccessHeader(), "Bearer " + accessToken);
-        response.addHeader(jwtService.getRefreshHeader(), "Bearer " + refreshToken);
-
+        // AT/RT 헤더 추가 및 DB 저장
         jwtService.sendRefreshToken(response, accessToken, refreshToken);
         jwtService.updateRefreshToken(
                 customOAuth2User.getEmail(),
@@ -73,8 +68,8 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 refreshToken
         );
 
-        // 로그인 성공 토큰 로깅 (개발용, 운영에서는 마스킹/레벨 조정 권장)
-        log.info("[OAUTH2-LOGIN] email={}, socialType={}, accessToken={}, refreshToken={}",
-                customOAuth2User.getEmail(), customOAuth2User.getProvider(), accessToken, refreshToken);
+        // 토큰 전체 문자열은 로그에 남기지 않고, 어떤 사용자인지만 기록
+        log.info("[OAUTH2-LOGIN] email={}, socialType={} JWT 발급 완료",
+                customOAuth2User.getEmail(), customOAuth2User.getProvider());
     }
 }
