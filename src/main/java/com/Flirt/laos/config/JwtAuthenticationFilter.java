@@ -193,10 +193,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     public void saveAuthentication(User myUser) { // 소셜/로컬 공통: 인증된 사용자 정보를 SecurityContext에 저장
+        // 사용자의 role 필드(0: 유저, 1: 관리자)에 따라 권한 설정
+        String role = myUser.isRole() ? "ADMIN" : "USER";
+
         UserDetails userDetails = org.springframework.security.core.userdetails.User.builder()
                 .username(myUser.getEmail() != null ? myUser.getEmail() : myUser.getLocalId()) // 이메일 없으면 localId 사용
                 .password("") // JWT 기반이라 비밀번호는 여기서 사용하지 않음
-                .roles("USER") // 간단히 USER 권한 부여
+                .roles(role) // DB에 저장된 역할에 따라 권한 부여
                 .build();
 
         // Authentication: 사용자 인증 상태와 정보를 나타내는 인터페이스
@@ -211,8 +214,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
         /** SecurityContextHolder : 스프링 시큐리티에 인증 정보 저장하고 조회하는 저장소 역할을함
-         *  1. getContext() : 현재 실행중인 스레드의 SecurityContext 가져옴
-         *  2. setAuthentication(객체) : 만든 객체를 저장하면, 해당 요청 동안 스프링 시큐리티가 사용자를 인증된 사용자로 인식하는 로직
+         * 1. getContext() : 현재 실행중인 스레드의 SecurityContext 가져옴
+         * 2. setAuthentication(객체) : 만든 객체를 저장하면, 해당 요청 동안 스프링 시큐리티가 사용자를 인증된 사용자로 인식하는 로직
          */
 
         SecurityContextHolder.getContext().setAuthentication(authentication);

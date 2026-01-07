@@ -26,7 +26,7 @@ import java.util.List;
 public class SecurityConfig {
 
     /**
-     * 🔐 Spring Security 핵심 설정
+     * Spring Security 핵심 설정
      */
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -65,8 +65,12 @@ public class SecurityConfig {
                                 "/question"
                         ).permitAll()
 
-                        // 인증 필요
-                        .requestMatchers("/logout", "/delete/user").authenticated()
+                        // 관리자 전용 기능 제한
+                        .requestMatchers("/add/comment").hasRole("ADMIN") // 멘트 추가 허용
+                        .requestMatchers("/request/negative").hasRole("ADMIN") // 멘트 추가 거절
+
+                        // 일반 사용자 인증 필요 경로
+                        .requestMatchers("/logout", "/delete/user", "/request/comment", "/add/bookmark", "/delete/bookmark").authenticated()
 
                         // 그 외는 전부 인증 필요
                         .anyRequest().authenticated()
@@ -85,7 +89,7 @@ public class SecurityConfig {
                             response.setContentType("application/json;charset=UTF-8");
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.getWriter().write(
-                                    "{\"error\":\"접근 권한이 없습니다.\"}"
+                                    "{\"error\":\"접근 권한이 없습니다. 관리자만 접근 가능합니다.\"}"
                             );
                         })
                 )
@@ -114,7 +118,7 @@ public class SecurityConfig {
     }
 
     /**
-     * 🔑 JWT 인증 필터 Bean
+     * JWT 인증 필터 Bean
      */
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(
@@ -125,7 +129,7 @@ public class SecurityConfig {
     }
 
     /**
-     * 🔐 비밀번호 암호화
+     * 비밀번호 암호화
      */
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
@@ -133,7 +137,7 @@ public class SecurityConfig {
     }
 
     /**
-     * 🌐 CORS 설정
+     * CORS 설정
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

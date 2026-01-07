@@ -34,13 +34,12 @@ public class Ment {
     @Column(name = "created_at")
     private Date createdAt;
 
-    @Column(name = "reason", nullable = false, length = 500)
+    @Column(name = "reason", length = 500)
     private String reason;
 
     @PrePersist
     protected void onCreate() {
         if (this.createdAt == null) this.createdAt = new Date();
         if (this.isApproved == null) this.isApproved = 0L; // 기본값 미승인
-        if (this.reason == null) this.reason = "none"; // Not Null 제약 조건 대비
     }
 }
