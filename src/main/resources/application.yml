@@ -3,7 +3,7 @@ server:
 
 spring:
   config:
-    import: "optional:application-secret.properties"
+    import: "optional:application-secret-flirt.properties"
   security:
     oauth2:
       client:
@@ -11,7 +11,7 @@ spring:
           google:
             client-id: ${OAUTH_GOOGLE_CLIENT_ID}
             client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:8080/oauth/callback/google}
+            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:5173/auth/callback}
             authorization-grant-type: authorization_code
             scope:
               - email

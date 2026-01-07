@@ -62,7 +62,6 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/oauth2/**",
                                 "/oauth/callback/**",
-                                "/mbti/**",
                                 "/question"
                         ).permitAll()
 

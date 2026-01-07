@@ -18,6 +18,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
@@ -55,14 +57,37 @@ public class GoogleOAuthService {
 
     /**
      * 인가 코드 기반 Google 로그인 전체 플로우
+     * @param code Google OAuth2 인가 코드 (URL 인코딩되어 있을 수 있음)
+     * @param requestRedirectUri 프론트엔드에서 사용한 redirect_uri (null이면 설정값 사용)
      */
-    public AuthTokensDTO loginWithCode(String code) {
+    public AuthTokensDTO loginWithCode(String code, String requestRedirectUri) {
         if (code == null || code.isBlank()) {
             throw new IllegalArgumentException("인가 코드(code)가 필요합니다.");
         }
 
+        // 인가 코드 URL 디코딩 (프론트엔드에서 URL 인코딩되어 올 수 있음)
+        String decodedCode;
+        try {
+            decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8);
+            if (!decodedCode.equals(code)) {
+                log.info("[Google OAuth] 인가 코드 URL 디코딩 완료: {} -> {}", 
+                        code.substring(0, Math.min(20, code.length())) + "...", 
+                        decodedCode.substring(0, Math.min(20, decodedCode.length())) + "...");
+            }
+        } catch (Exception e) {
+            log.warn("[Google OAuth] 인가 코드 디코딩 실패, 원본 사용: {}", e.getMessage());
+            decodedCode = code; // 디코딩 실패 시 원본 사용
+        }
+
+        // 프론트엔드에서 redirect_uri를 전달한 경우 사용, 없으면 설정값 사용
+        String finalRedirectUri = (requestRedirectUri != null && !requestRedirectUri.isBlank()) 
+                ? requestRedirectUri 
+                : redirectUri;
+        
+        log.info("[Google OAuth] 토큰 교환 시작 - redirect_uri: {}", finalRedirectUri);
+
         // 1. 인가 코드로 Google 토큰 요청 (redirect_uri 포함)
-        GoogleTokenResponse googleToken = requestGoogleToken(code, redirectUri);
+        GoogleTokenResponse googleToken = requestGoogleToken(decodedCode, finalRedirectUri);
 
         if (googleToken.getAccessToken() == null || googleToken.getAccessToken().isBlank()) {
             throw new IllegalStateException("Google 토큰 응답에 access_token 이 없습니다.");
@@ -102,6 +127,12 @@ public class GoogleOAuthService {
         params.add("redirect_uri", redirectUri);
         params.add("code", code);
 
+        // 디버깅: 요청 파라미터 로깅 (민감 정보는 마스킹)
+        log.info("[Google OAuth] 토큰 요청 파라미터 - client_id: {}, redirect_uri: {}, code: {}...", 
+                clientId != null ? clientId.substring(0, Math.min(20, clientId.length())) + "..." : "null",
+                redirectUri,
+                code != null && code.length() > 10 ? code.substring(0, 10) + "..." : code);
+
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
 
         try {
@@ -113,12 +144,38 @@ public class GoogleOAuthService {
                 throw new IllegalStateException("Google 토큰 발급에 실패했습니다.");
             }
 
+            log.info("[Google OAuth] 토큰 발급 성공");
             return response.getBody();
         } catch (org.springframework.web.client.HttpClientErrorException e) {
             // 구글이 invalid_request, redirect_uri_mismatch 등을 응답할 때 상세 로그 남김
-            log.error("[Google OAuth] 토큰 발급 HTTP 오류. status={}, body={}",
-                    e.getStatusCode(), e.getResponseBodyAsString());
-            throw new IllegalStateException("Google 토큰 발급 요청이 거절되었습니다: " + e.getStatusCode());
+            String errorBody = e.getResponseBodyAsString();
+            log.error("[Google OAuth] 토큰 발급 HTTP 오류. status={}", e.getStatusCode());
+            log.error("[Google OAuth] 에러 응답 본문: {}", errorBody != null ? errorBody : "(비어있음)");
+            log.error("[Google OAuth] 요청 파라미터:");
+            log.error("  - redirect_uri: {}", redirectUri);
+            log.error("  - client_id: {}...", clientId != null ? clientId.substring(0, Math.min(20, clientId.length())) + "..." : "null");
+            log.error("  - code: {}...", code != null && code.length() > 20 ? code.substring(0, 20) + "..." : code);
+            
+            // Google의 에러 메시지를 더 명확하게 전달
+            String errorMessage = "Google 토큰 발급 요청이 거절되었습니다: " + e.getStatusCode();
+            
+            // 일반적인 오류 원인 안내
+            if (e.getStatusCode().value() == 401) {
+                errorMessage += "\n가능한 원인:\n";
+                errorMessage += "1. 인가 코드가 이미 사용되었거나 만료되었습니다 (인가 코드는 한 번만 사용 가능)\n";
+                errorMessage += "2. redirect_uri가 Google 로그인 시 사용한 값과 일치하지 않습니다\n";
+                errorMessage += "3. client_id 또는 client_secret이 잘못되었습니다\n";
+                if (errorBody != null && !errorBody.isEmpty()) {
+                    errorMessage += "\nGoogle 에러 상세: " + errorBody;
+                }
+            } else if (errorBody != null && !errorBody.isEmpty()) {
+                errorMessage += " - " + errorBody;
+            }
+            
+            throw new IllegalStateException(errorMessage);
+        } catch (org.springframework.web.client.RestClientException e) {
+            log.error("[Google OAuth] 네트워크 오류 또는 기타 예외 발생", e);
+            throw new IllegalStateException("Google 토큰 발급 중 오류가 발생했습니다: " + e.getMessage(), e);
         }
     }
 

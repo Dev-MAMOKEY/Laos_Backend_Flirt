@@ -34,15 +34,27 @@ public class SocialAuthController {
     @PostMapping("/callback/google")
     public ResponseEntity<?> googleLogin(@RequestBody GoogleAuthCodeDTO dto) {
         try {
-            log.info("[Google OAuth] /oauth/callback/google 요청 수신");
-            AuthTokensDTO tokens = googleOAuthService.loginWithCode(dto.getCode());
+            log.info("[Google OAuth] /oauth/callback/google 요청 수신 - code: {}..., redirectUri: {}", 
+                    dto.getCode() != null && dto.getCode().length() > 10 
+                        ? dto.getCode().substring(0, 10) + "..." 
+                        : dto.getCode(),
+                    dto.getRedirectUri());
+            
+            if (dto.getCode() == null || dto.getCode().isBlank()) {
+                return ResponseEntity.badRequest().body("인가 코드(code)가 필요합니다.");
+            }
+            
+            AuthTokensDTO tokens = googleOAuthService.loginWithCode(dto.getCode(), dto.getRedirectUri());
             return ResponseEntity.ok(tokens);
         } catch (IllegalArgumentException e) {
             log.warn("[Google OAuth] 잘못된 요청: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("[Google OAuth] 상태 오류: {}", e.getMessage());
+            return ResponseEntity.status(400).body(e.getMessage());
         } catch (Exception e) {
             log.error("[Google OAuth] 소셜 로그인 처리 중 오류", e);
-            return ResponseEntity.status(500).body("Google 소셜 로그인 처리 중 오류가 발생했습니다.");
+            return ResponseEntity.status(500).body("Google 소셜 로그인 처리 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 }
