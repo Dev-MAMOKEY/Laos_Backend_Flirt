@@ -3,7 +3,7 @@ server:
 
 spring:
   config:
-    import: "optional:application-secret.properties"
+    import: "optional:application-secret-flirt.properties"
   security:
     oauth2:
       client:
@@ -11,15 +11,15 @@ spring:
           google:
             client-id: ${OAUTH_GOOGLE_CLIENT_ID}
             client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI}
+            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:5173/auth/callback}
             authorization-grant-type: authorization_code
             scope:
               - email
               - profile
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
+    url: ${DB_URL_LOCAL}
+    username: ${DB_USERNAME_LOCAL}
     password: ${DB_PASSWORD}
 
   jpa:
@@ -39,3 +39,6 @@ jwt:
   refresh:
     expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
     header: ${JWT_REFRESH_HEADER:Authorization-refresh}
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
