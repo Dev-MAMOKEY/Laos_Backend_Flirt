@@ -11,7 +11,7 @@ spring:
           google:
             client-id: ${OAUTH_GOOGLE_CLIENT_ID}
             client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:8080/oauth/callback/google}
+            redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI}
             authorization-grant-type: authorization_code
             scope:
               - email

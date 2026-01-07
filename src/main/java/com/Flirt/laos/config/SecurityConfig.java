@@ -93,11 +93,10 @@ public class SecurityConfig {
                 // 기본 로그아웃 비활성화 (JWT 방식)
                 .logout(logout -> logout.disable())
 
-                // OAuth2 소셜 로그인
+                // OAuth2 소셜 로그인 (브라우저 리다이렉트 방식)
+                // ※ 수동 코드 교환 엔드포인트(/oauth/callback/google)와 겹치지 않도록
+                //   Spring Security 기본 리다이렉트 URI 패턴(/login/oauth2/code/*)을 사용한다.
                 .oauth2Login(oauth -> oauth
-                        .redirectionEndpoint(redir ->
-                                redir.baseUri("/oauth/callback/*")
-                        )
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(customOAuth2UserService)
                         )

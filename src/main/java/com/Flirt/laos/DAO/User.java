@@ -42,6 +42,9 @@ public class User {
     @Column(name = "created_at") // 계정 생성 일시
     private Date createdAt;
 
+    @Column(name = "role") // 사용자 역할 (예: USER, ADMIN)
+    private boolean role; // 0 = 유저, 1 = 관리자
+
     // 엔티티가 처음 저장될 때 생성 시간 자동 설정
     @PrePersist
     protected void onCreate() {
