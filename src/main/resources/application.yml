@@ -1,44 +1,55 @@
 server:
-  port: 8080
+  port: 8080 # 서버 포트 번호 설정
 
 spring:
   config:
+    # 보안이 필요한 민감한 정보(API 키, DB 접속 정보 등)를 담은 외부 파일을 불러옵니다.
+    # 파일이 없을 경우를 대비해 optional 설정을 추가했습니다.
     import: "optional:application-secret-flirt.properties"
+
   security:
     oauth2:
       client:
         registration:
           google:
+            # 구글 소셜 로그인 설정 (환경변수 또는 .properties 파일에서 값을 가져옴)
             client-id: ${OAUTH_GOOGLE_CLIENT_ID}
             client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET}
+            # 인가 코드(Code)를 전달받을 리다이렉트 URI 설정
             redirect-uri: ${OAUTH_GOOGLE_REDIRECT_URI:http://localhost:5173/auth/callback}
             authorization-grant-type: authorization_code
             scope:
               - email
               - profile
+
   datasource:
+    # 데이터베이스 연결을 위한 MySQL 드라이버 및 로컬 DB 접속 정보 설정
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL_LOCAL}
     username: ${DB_USERNAME_LOCAL}
     password: ${DB_PASSWORD}
 
   jpa:
+    # 엔티티 클래스를 바탕으로 DB 테이블을 자동 생성/수정하도록 설정
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: true # 실행되는 SQL문을 콘솔에 출력
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect # MySQL 전용 방언 사용
+        format_sql: true # 출력되는 SQL문을 보기 좋게 포맷팅
 
+# JwtService 클래스에서 사용하는 커스텀 JWT 설정값입니다.
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET} # 토큰 서명에 사용될 비밀키
   access:
-    expiration: ${JWT_ACCESS_EXPIRATION:3600000}
-    header: ${JWT_ACCESS_HEADER:Authorization}
+    expiration: ${JWT_ACCESS_EXPIRATION:3600000} # 액세스 토큰 만료 시간 (기본 1시간)
+    header: ${JWT_ACCESS_HEADER:Authorization} # 요청 헤더의 액세스 토큰 키 이름
   refresh:
-    expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
-    header: ${JWT_REFRESH_HEADER:Authorization-refresh}
+    expiration: ${JWT_REFRESH_EXPIRATION:1209600000} # 리프레시 토큰 만료 시간 (기본 2주)
+    header: ${JWT_REFRESH_HEADER:Authorization-refresh} # 요청 헤더의 리프레시 토큰 키 이름
+
+# OpenAiService 클래스에서 AI 번역 및 설명을 위해 사용하는 설정입니다.
 ai:
   openai:
-    api-key: ${OPENAI_API_KEY}
+    api-key: ${OPENAI_API_KEY} # OpenAI API 호출을 위한 인증 키
