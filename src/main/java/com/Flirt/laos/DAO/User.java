@@ -15,7 +15,7 @@ import java.util.Date;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "user_id") // PK, 사용자 고유 번호(자동으로 1씩 증가함)
+    @Column(name = "user_num") // PK, 사용자 고유 번호(자동으로 1씩 증가함)
     private Integer userNum;
 
     @Column(name = "local_id") // 로컬 로그인시 사용자가 입력하는 아이디
