@@ -10,7 +10,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class OpenAiService {
 
-    @Value("${OPENAI_API_KEY}")
+    @Value("${ai.openai.api-key}")
     private String apiKey;
 
     private String defalut_prompt = """
