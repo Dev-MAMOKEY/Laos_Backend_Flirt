@@ -5,15 +5,15 @@ import com.Flirt.laos.DTO.OpenAiResponseDTO;
 import com.Flirt.laos.repository.UserRepository;
 import com.Flirt.laos.service.JwtService;
 import com.Flirt.laos.service.OpenAiService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Optional;
 
 @RestController
 @Slf4j
@@ -29,73 +29,17 @@ public class OpenAiController {
     }
 
     @PostMapping("/translate")
-    public ResponseEntity<?> getChatCpmpletions(HttpServletRequest request, @RequestBody String prompt){
-        log.info("[OpenAI] POST /question 요청 도착");
-        log.info("[OpenAI] Authorization 헤더: {}", request.getHeader("Authorization"));
+    public ResponseEntity<?> getChatCpmpletions(@RequestBody String prompt){
+        log.info("[OpenAI] POST /translate 요청 도착");
 
-        // AccessToken 추출
-        Optional<String> accessTokenOptional = jwtService.extractAccessToken(request);
-        if (accessTokenOptional.isEmpty()) {
-            log.warn("[OpenAI] AccessToken 없음 - 헤더 이름: {}", jwtService.getAccessHeader());
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("AccessToken이 필요합니다.");
-        }
-
-        String accessToken = accessTokenOptional.get();
-        log.info("[OpenAI] 추출된 토큰 길이: {}", accessToken.length());
-        log.info("[OpenAI] 추출된 토큰 (앞 30자): {}", accessToken.length() > 30 ? accessToken.substring(0, 30) + "..." : accessToken);
-        log.info("[OpenAI] 토큰 부분 개수: {}", accessToken.split("\\.").length);
-
-        // 토큰 유효성 검사
-        if (!jwtService.isTokenValid(accessToken)) {
-            log.warn("[OpenAI] 토큰 유효성 검사 실패");
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body("유효하지 않은 AccessToken 입니다.");
-        }
-        log.info("[OpenAI] 토큰 유효성 검사 통과");
-
-        // 사용자 찾기 (로컬 → 소셜 순서로 시도)
-        User user = null;
-
-        // 로컬 로그인: userNum으로 찾기
-        Optional<Integer> userNumClaim = jwtService.extractUserNum(accessToken);
-        if (userNumClaim.isPresent()) {
-            Integer userNum = userNumClaim.get();
-            log.info("[OpenAI] userNum으로 사용자 조회 시도: {}", userNum);
-            user = userRepository.findByUserNum(userNum).orElse(null);
-            if (user != null) {
-                log.info("[OpenAI] userNum으로 사용자 찾음: {}", user.getUserNum());
-            }
-        } else {
-            log.info("[OpenAI] userNum 클레임 없음");
-        }
-
-        // 소셜 로그인: email + provider로 찾기
-        if (user == null) {
-            Optional<String> emailClaim = jwtService.extractEmail(accessToken);
-            Optional<com.Flirt.laos.DAO.Provider> providerClaim = jwtService.extractProvider(accessToken);
-            log.info("[OpenAI] email 클레임: {}, provider 클레임: {}",
-                    emailClaim.isPresent() ? emailClaim.get() : "없음",
-                    providerClaim.isPresent() ? providerClaim.get() : "없음");
-
-            if (emailClaim.isPresent() && providerClaim.isPresent()) {
-                String email = emailClaim.get();
-                String provider = providerClaim.get().name();
-                log.info("[OpenAI] email + provider로 사용자 조회 시도: {}, {}", email, provider);
-                user = userRepository.findByEmailAndProvider(email, provider).orElse(null);
-                if (user != null) {
-                    log.info("[OpenAI] email + provider로 사용자 찾음: {}", user.getUserNum());
-                }
-            }
-        }
+        // [수정] SecurityContext에서 인증된 사용자 추출
+        User user = extractUserFromToken();
 
         if (user == null) {
-            log.warn("[OpenAI] 사용자를 찾을 수 없습니다.");
+            log.warn("[OpenAI] 사용자를 찾을 수 없거나 인증되지 않았습니다.");
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body("사용자를 찾을 수 없습니다.");
+                    .body("인증된 사용자 정보를 찾을 수 없습니다.");
         }
 
         try {
@@ -111,5 +55,23 @@ public class OpenAiController {
                     .body("OpenAI API 호출 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
-}
 
+    /**
+     * [내부 헬퍼] SecurityContext에서 User 엔티티 추출
+     */
+    private User extractUserFromToken() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal().equals("anonymousUser")) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            String username = userDetails.getUsername();
+            return userRepository.findByEmail(username)
+                    .or(() -> userRepository.findByLocalId(username))
+                    .orElse(null);
+        }
+        return null;
+    }
+}

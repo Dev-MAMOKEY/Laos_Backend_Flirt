@@ -62,17 +62,27 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/oauth2/**",
                                 "/oauth/callback/**",
-                                "/question"
+                                "/question",
+                                "/ment/list" // [수정] 멘트 목록 조회는 비로그인 유저도 가능하게 허용
                         ).permitAll()
 
                         // 관리자 전용 기능 제한
-                        .requestMatchers("/add/comment").hasRole("ADMIN") // 멘트 추가 허용
-                        .requestMatchers("/request/negative").hasRole("ADMIN") // 멘트 추가 거절
+                        .requestMatchers("/add/comment").hasRole("ADMIN") // 멘트 승인 처리
+                        .requestMatchers("/request/negative").hasRole("ADMIN") // 멘트 거절 처리
+                        .requestMatchers("/admin/ment/pending").hasRole("ADMIN") // [추가] 승인 대기 목록 조회 권한 설정
 
-                        // 일반 사용자 인증 필요 경로
-                        .requestMatchers("/logout", "/delete/user", "/request/comment", "/add/bookmark", "/delete/bookmark").authenticated()
+                        // 일반 사용자 인증 필요 경로 (북마크 관련 경로 포함)
+                        .requestMatchers(
+                                "/logout",
+                                "/delete/user",
+                                "/request/comment",
+                                "/my/ment/list",
+                                "/add/bookmark",
+                                "/delete/bookmark",
+                                "/my/bookmarks"
+                        ).authenticated()
 
-                        // 그 외는 전부 인증 필요
+                        // 그 외는 전부 인증 필요 (가장 마지막에 위치해야 함)
                         .anyRequest().authenticated()
                 )
 
@@ -97,9 +107,7 @@ public class SecurityConfig {
                 // 기본 로그아웃 비활성화 (JWT 방식)
                 .logout(logout -> logout.disable())
 
-                // OAuth2 소셜 로그인 (브라우저 리다이렉트 방식)
-                // ※ 수동 코드 교환 엔드포인트(/oauth/callback/google)와 겹치지 않도록
-                //   Spring Security 기본 리다이렉트 URI 패턴(/login/oauth2/code/*)을 사용한다.
+                // OAuth2 소셜 로그인 설정
                 .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(customOAuth2UserService)

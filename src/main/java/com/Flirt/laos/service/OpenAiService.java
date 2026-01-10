@@ -7,6 +7,11 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 public class OpenAiService {
 
@@ -30,31 +35,34 @@ public class OpenAiService {
     public OpenAiService(RestTemplate restTemplate){
         this.restTemplate = restTemplate;
     }
+
     public String getContent(String default_prompt, String prompt){
         String url = "https://api.openai.com/v1/chat/completions"; //api 호출 url
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(apiKey); //apiKey를 헤더에 삽입
         httpHeaders.setContentType(MediaType.APPLICATION_JSON); //JSON형식
 
-        // default_prompt를 system 메시지로, prompt를 user 메시지로 전달
-        String requestBody = String.format(
-                "{\"model\":\"gpt-3.5-turbo\", \"messages\":[" +
-                        "{\"role\":\"system\", \"content\":\"%s\"}," +
-                        "{\"role\":\"user\", \"content\":\"%s\"}" +
-                        "]}",
-                default_prompt.replace("\"", "\\\"").replace("\n", "\\n"),
-                prompt.replace("\"", "\\\"").replace("\n", "\\n")
-        );
-
-        HttpEntity<String> httpEntity = new HttpEntity<>(requestBody, httpHeaders);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, httpEntity, String.class);
-        String body = response.getBody();
-        if (body == null) {
-            throw new RuntimeException("OpenAI API 응답이 null입니다.");
-        }
-
-        // JSON 파싱하여 content만 추출
         try {
+            // [수정] String.format 대신 Map과 ObjectMapper를 사용해 안전하게 JSON 생성
+            Map<String, Object> requestMap = new HashMap<>();
+            requestMap.put("model", "gpt-3.5-turbo");
+
+            List<Map<String, String>> messages = new ArrayList<>();
+            messages.add(Map.of("role", "system", "content", default_prompt));
+            messages.add(Map.of("role", "user", "content", prompt));
+
+            requestMap.put("messages", messages);
+            String requestBody = objectMapper.writeValueAsString(requestMap);
+
+            HttpEntity<String> httpEntity = new HttpEntity<>(requestBody, httpHeaders);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, httpEntity, String.class);
+
+            String body = response.getBody();
+            if (body == null) {
+                throw new RuntimeException("OpenAI API 응답이 null입니다.");
+            }
+
+            // JSON 파싱하여 content만 추출
             JsonNode jsonNode = objectMapper.readTree(body);
 
             // choices 배열 확인
@@ -83,9 +91,9 @@ public class OpenAiService {
 
             return content;
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new RuntimeException("OpenAI API 응답 JSON 파싱 실패: " + e.getMessage() + "\n응답 본문: " + body, e);
+            throw new RuntimeException("OpenAI API 요청 생성 또는 응답 JSON 파싱 실패: " + e.getMessage(), e);
         } catch (Exception e) {
-            throw new RuntimeException("OpenAI API 응답 처리 중 오류 발생: " + e.getMessage() + "\n응답 본문: " + body, e);
+            throw new RuntimeException("OpenAI API 응답 처리 중 오류 발생: " + e.getMessage(), e);
         }
     }
 }

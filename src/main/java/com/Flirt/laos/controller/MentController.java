@@ -12,10 +12,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @Slf4j
@@ -33,7 +35,7 @@ public class MentController {
     public ResponseEntity<?> requestMent(HttpServletRequest request, @RequestBody MentRequestDTO dto) {
         log.info("[MENT] POST /request/comment 요청 도착");
 
-        User user = extractUserFromToken(request);
+        User user = extractUserFromToken();
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증된 사용자 정보를 찾을 수 없습니다.");
         }
@@ -62,9 +64,9 @@ public class MentController {
      * 유저 - 내가 신청한 멘트 목록 조회 (상태 포함)
      */
     @GetMapping("/my/ment/list")
-    public ResponseEntity<?> getMyMentList(HttpServletRequest request) {
+    public ResponseEntity<?> getMyMentList() {
         log.info("[MENT] GET /my/ment/list 요청 도착");
-        User user = extractUserFromToken(request);
+        User user = extractUserFromToken();
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증된 사용자 정보를 찾을 수 없습니다.");
         }
@@ -122,27 +124,23 @@ public class MentController {
     }
 
     /**
-     * [내부 헬퍼] 요청 헤더의 토큰에서 User 엔티티 추출
+     * [내부 헬퍼 수정] 이미 Filter에서 검증된 정보를 SecurityContext에서 가져오도록 변경
+     *
      */
-    private User extractUserFromToken(HttpServletRequest request) {
-        Optional<String> tokenOpt = jwtService.extractAccessToken(request);
-        if (tokenOpt.isEmpty() || !jwtService.isTokenValid(tokenOpt.get())) return null;
-
-        String token = tokenOpt.get();
-
-        // 1. 로컬 로그인 토큰 확인 (userNum)
-        Optional<Integer> userNumOpt = jwtService.extractUserNum(token);
-        if (userNumOpt.isPresent()) {
-            return userRepository.findByUserNum(userNumOpt.get()).orElse(null);
+    private User extractUserFromToken() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || authentication.getPrincipal().equals("anonymousUser")) {
+            return null;
         }
 
-        // 2. 소셜 로그인 토큰 확인 (email + provider)
-        Optional<String> emailOpt = jwtService.extractEmail(token);
-        Optional<com.Flirt.laos.DAO.Provider> providerOpt = jwtService.extractProvider(token);
-        if (emailOpt.isPresent() && providerOpt.isPresent()) {
-            return userRepository.findByEmailAndProvider(emailOpt.get(), providerOpt.get().name()).orElse(null);
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            String username = userDetails.getUsername();
+            // JwtAuthenticationFilter에서 username에 email이나 localId를 넣어두었으므로 이를 활용해 조회
+            return userRepository.findByEmail(username)
+                    .or(() -> userRepository.findByLocalId(username))
+                    .orElse(null);
         }
-
         return null;
     }
 }
